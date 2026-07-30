@@ -5,6 +5,11 @@ import { guideURL } from "./exercise-library.js";
 
 let session = null; // { dayId, dayName, exercises, entries, index }
 
+/** An in-progress session lives only in memory — never reload the page during one. */
+export function isSessionActive() {
+  return session !== null;
+}
+
 export function startSession(day) {
   session = {
     dayId: day.id,

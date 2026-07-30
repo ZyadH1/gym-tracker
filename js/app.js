@@ -25,6 +25,16 @@ renderAll();
 showView("home-view");
 
 if ("serviceWorker" in navigator) {
+  // Cache-first means an already-installed copy would otherwise serve stale
+  // files for one extra visit after a deploy. If a new worker takes over a page
+  // that already had one, reload once so the update applies immediately.
+  const hadController = !!navigator.serviceWorker.controller;
+  let reloading = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (!hadController || reloading) return;
+    reloading = true;
+    location.reload();
+  });
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("service-worker.js").catch(() => {});
   });

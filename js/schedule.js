@@ -3,7 +3,8 @@ import {
   addExercise, removeExercise, moveExercise, renameExercise, applyPreset,
 } from "./state.js";
 import { escapeHTML, openSheet, closeSheet, toast } from "./ui-kit.js";
-import { PRESETS } from "./presets.js";
+import { PRESET_CATEGORIES, PRESETS } from "./presets.js";
+import { EXERCISE_GROUPS, guideURL } from "./exercise-library.js";
 
 function dayCardHTML(day, index, total) {
   return `
@@ -26,6 +27,9 @@ function dayCardHTML(day, index, total) {
         <div class="exercise-row" data-exercise-id="${ex.id}">
           <span class="ex-index">${i + 1}</span>
           <input value="${escapeHTML(ex.name)}" data-action="ex-name" />
+          <a class="btn-icon guide-icon" href="${guideURL(ex.name)}" target="_blank" rel="noopener noreferrer" aria-label="How to do ${escapeHTML(ex.name)}">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 114 2c-.9.7-1.5 1.2-1.5 2.2"/><path d="M12 17h.01"/></svg>
+          </a>
           <div class="reorder-col">
             <button class="reorder-btn" data-action="ex-up" ${i === 0 ? "disabled" : ""}>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M6 15l6-6 6 6"/></svg>
@@ -39,32 +43,72 @@ function dayCardHTML(day, index, total) {
           </button>
         </div>
       `).join("")}
-      <div class="add-exercise-row">
-        <input type="text" placeholder="Add exercise…" data-action="new-exercise-input" />
-        <button class="btn btn-secondary" data-action="new-exercise-add" style="min-height:40px;padding:0 16px;">Add</button>
+      <div class="day-card-footer">
+        <button class="btn btn-ghost" data-action="open-picker">+ Add exercise</button>
       </div>
     </div>
   `;
 }
 
-function presetSheetHTML() {
+/* ===== Preset browser ===== */
+
+function presetCardHTML(preset) {
   return `
-    <div class="sheet-handle"></div>
-    <h3>Choose a split</h3>
-    <div class="preset-list">
-      ${PRESETS.map((p) => `
-        <button class="preset-card" data-preset-id="${p.id}">
-          <h4>${escapeHTML(p.name)}</h4>
-          <p>${escapeHTML(p.blurb)}</p>
-          <p style="color:var(--text-tertiary);font-size:13px;margin-top:6px;">${p.days.map((d) => escapeHTML(d.name)).join(" · ")}</p>
-        </button>
-      `).join("")}
-    </div>
-  `;
+    <button class="preset-card" data-preset-id="${preset.id}">
+      <div class="preset-card-top">
+        <h4>${escapeHTML(preset.name)}</h4>
+        <span class="freq-badge">${escapeHTML(preset.freq)}</span>
+      </div>
+      <p>${escapeHTML(preset.blurb)}</p>
+      <p class="preset-days">${preset.days.map((d) => escapeHTML(d.name)).join(" · ")}</p>
+    </button>`;
 }
 
 function openPresetSheet() {
-  openSheet(presetSheetHTML());
+  // Every preset is rendered once, then filtered in place — re-rendering on
+  // each keystroke would drop focus and fight the on-screen keyboard.
+  const searchIndex = new Map();
+  PRESETS.forEach((p) => {
+    searchIndex.set(p.id, [
+      p.name, p.blurb, p.freq,
+      ...p.days.map((d) => d.name),
+      ...p.days.flatMap((d) => d.exercises),
+    ].join(" ").toLowerCase());
+  });
+
+  openSheet(`
+    <div class="sheet-handle"></div>
+    <h3>Choose a split</h3>
+    <input type="search" class="sheet-search" id="preset-search" placeholder="Search splits or exercises…" />
+    <div class="preset-scroll">
+      ${PRESET_CATEGORIES.map((c) => `
+        <div class="preset-cat" data-cat>
+          <div class="preset-cat-name">${escapeHTML(c.name)}</div>
+          <div class="preset-cat-blurb">${escapeHTML(c.blurb)}</div>
+          <div class="preset-list">${c.presets.map(presetCardHTML).join("")}</div>
+        </div>
+      `).join("")}
+      <p class="no-results hidden" id="preset-no-results">No splits match that search.</p>
+    </div>
+  `);
+
+  const search = document.getElementById("preset-search");
+  search.addEventListener("input", () => {
+    const q = search.value.trim().toLowerCase();
+    let anyVisible = false;
+    document.querySelectorAll("[data-cat]").forEach((cat) => {
+      let catVisible = false;
+      cat.querySelectorAll("[data-preset-id]").forEach((card) => {
+        const hit = !q || (searchIndex.get(card.dataset.presetId) || "").includes(q);
+        card.classList.toggle("hidden", !hit);
+        if (hit) catVisible = true;
+      });
+      cat.classList.toggle("hidden", !catVisible);
+      if (catVisible) anyVisible = true;
+    });
+    document.getElementById("preset-no-results").classList.toggle("hidden", anyVisible);
+  });
+
   document.querySelectorAll("[data-preset-id]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const preset = PRESETS.find((p) => p.id === btn.dataset.presetId);
@@ -73,11 +117,8 @@ function openPresetSheet() {
         closeSheet();
         toast(`${preset.name} loaded`);
       };
-      if (getState().days.length) {
-        confirmReplace(preset, apply);
-      } else {
-        apply();
-      }
+      if (getState().days.length) confirmReplace(preset, apply);
+      else apply();
     });
   });
 }
@@ -94,24 +135,112 @@ function confirmReplace(preset, onConfirm) {
   document.getElementById("confirm-replace-no").addEventListener("click", () => openPresetSheet());
 }
 
+/* ===== Exercise picker ===== */
+
+function openExercisePicker(dayId) {
+  const day = getState().days.find((d) => d.id === dayId);
+  if (!day) return;
+  const existing = new Set(day.exercises.map((e) => e.name.toLowerCase()));
+  const known = new Set(EXERCISE_GROUPS.flatMap((g) => g.exercises).map((e) => e.toLowerCase()));
+
+  openSheet(`
+    <div class="sheet-handle"></div>
+    <h3>Add to ${escapeHTML(day.name)}</h3>
+    <input type="search" class="sheet-search" id="ex-search" placeholder="Search exercises…" />
+    <div class="picker-scroll">
+      <button class="chip chip-custom hidden" id="add-custom-btn"></button>
+      ${EXERCISE_GROUPS.map((g) => `
+        <div class="picker-group" data-group>
+          <div class="picker-group-name">${escapeHTML(g.name)}</div>
+          <div class="chip-row">
+            ${g.exercises.map((e) => `
+              <button class="chip ${existing.has(e.toLowerCase()) ? "chip-added" : ""}" data-add="${escapeHTML(e)}">
+                <span class="chip-label">${escapeHTML(e)}${existing.has(e.toLowerCase()) ? " ✓" : ""}</span>
+                <a class="chip-guide" href="${guideURL(e)}" target="_blank" rel="noopener noreferrer" aria-label="How to do ${escapeHTML(e)}">?</a>
+              </button>`).join("")}
+          </div>
+        </div>
+      `).join("")}
+    </div>
+    <button class="btn btn-primary btn-block" id="picker-done">Done</button>
+  `);
+
+  const search = document.getElementById("ex-search");
+  const customBtn = document.getElementById("add-custom-btn");
+
+  search.addEventListener("input", () => {
+    const raw = search.value.trim();
+    const q = raw.toLowerCase();
+    document.querySelectorAll("[data-group]").forEach((group) => {
+      let visible = false;
+      group.querySelectorAll("[data-add]").forEach((chip) => {
+        const hit = !q || chip.dataset.add.toLowerCase().includes(q);
+        chip.classList.toggle("hidden", !hit);
+        if (hit) visible = true;
+      });
+      group.classList.toggle("hidden", !visible);
+    });
+    const showCustom = raw.length > 1 && !known.has(q);
+    customBtn.classList.toggle("hidden", !showCustom);
+    if (showCustom) {
+      customBtn.textContent = `+ Add "${raw}" as a custom exercise`;
+      customBtn.dataset.addCustom = raw;
+    }
+  });
+
+  function markAdded(chip, name) {
+    addExercise(dayId, name);
+    toast(`${name} added`);
+    chip.classList.add("chip-added");
+    const label = chip.querySelector(".chip-label");
+    if (label && !label.textContent.endsWith(" ✓")) label.textContent += " ✓";
+  }
+
+  document.querySelectorAll("[data-add]").forEach((chip) => {
+    chip.addEventListener("click", (e) => {
+      if (e.target.closest(".chip-guide")) return; // let the guide link through
+      markAdded(chip, chip.dataset.add);
+    });
+  });
+
+  customBtn.addEventListener("click", () => {
+    const name = customBtn.dataset.addCustom;
+    if (!name) return;
+    addExercise(dayId, name);
+    toast(`${name} added`);
+    search.value = "";
+    search.dispatchEvent(new Event("input"));
+  });
+
+  document.getElementById("picker-done").addEventListener("click", closeSheet);
+}
+
 function openAddDaySheet() {
   openSheet(`
     <div class="sheet-handle"></div>
     <h3>Add a day</h3>
-    <input type="text" id="new-day-name" placeholder="e.g. Push, Upper, Full Body A" style="width:100%;min-height:48px;border:1px solid var(--border);border-radius:12px;background:var(--bg-sunken);padding:0 14px;font-size:16px;" />
+    <input type="text" id="new-day-name" class="sheet-search" placeholder="e.g. Push, Upper, Full Body A" />
+    <div class="chip-row" id="day-name-suggestions">
+      ${["Push", "Pull", "Legs", "Upper", "Lower", "Full Body", "Chest", "Back", "Shoulders", "Arms"]
+        .map((n) => `<button class="chip" data-day-name="${n}">${n}</button>`).join("")}
+    </div>
     <button class="btn btn-primary btn-block" id="new-day-confirm">Add Day</button>
   `);
   const input = document.getElementById("new-day-name");
-  input.focus();
   const confirm = () => {
     const name = input.value.trim();
     if (!name) return;
     addDay(name);
     closeSheet();
   };
+  document.querySelectorAll("[data-day-name]").forEach((btn) => {
+    btn.addEventListener("click", () => { input.value = btn.dataset.dayName; });
+  });
   document.getElementById("new-day-confirm").addEventListener("click", confirm);
   input.addEventListener("keydown", (e) => { if (e.key === "Enter") confirm(); });
 }
+
+/* ===== View ===== */
 
 export function renderSchedule() {
   const state = getState();
@@ -127,7 +256,7 @@ export function renderSchedule() {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
         </div>
         <h3>Build your split</h3>
-        <p>Start from a preset above, or add your own days below.</p>
+        <p>Start from a preset above — PPL, Upper/Lower, bro split and more — or add your own days.</p>
         <button class="btn btn-primary" id="empty-add-day-btn">+ Add Day</button>
       </div>
     `;
@@ -136,7 +265,7 @@ export function renderSchedule() {
     container.innerHTML = presetBtn + state.days.map((d, i) => dayCardHTML(d, i, state.days.length)).join("");
   }
 
-  document.getElementById("browse-presets-btn").addEventListener("click", openPresetSheet);
+  document.getElementById("browse-presets-btn").addEventListener("click", () => openPresetSheet());
 
   container.querySelectorAll(".day-card").forEach((card) => {
     const dayId = card.dataset.dayId;
@@ -144,6 +273,7 @@ export function renderSchedule() {
     card.querySelector('[data-action="day-name"]').addEventListener("change", (e) => renameDay(dayId, e.target.value.trim() || "Untitled"));
     card.querySelector('[data-action="day-up"]').addEventListener("click", () => moveDay(dayId, -1));
     card.querySelector('[data-action="day-down"]').addEventListener("click", () => moveDay(dayId, 1));
+    card.querySelector('[data-action="open-picker"]').addEventListener("click", () => openExercisePicker(dayId));
     card.querySelector('[data-action="day-delete"]').addEventListener("click", () => {
       openSheet(`
         <div class="sheet-handle"></div>
@@ -163,14 +293,6 @@ export function renderSchedule() {
       row.querySelector('[data-action="ex-down"]').addEventListener("click", () => moveExercise(dayId, exerciseId, 1));
       row.querySelector('[data-action="ex-remove"]').addEventListener("click", () => removeExercise(dayId, exerciseId));
     });
-
-    const newExInput = card.querySelector('[data-action="new-exercise-input"]');
-    const addNewEx = () => {
-      if (!newExInput.value.trim()) return;
-      addExercise(dayId, newExInput.value);
-    };
-    card.querySelector('[data-action="new-exercise-add"]').addEventListener("click", addNewEx);
-    newExInput.addEventListener("keydown", (e) => { if (e.key === "Enter") addNewEx(); });
   });
 }
 

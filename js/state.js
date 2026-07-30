@@ -134,13 +134,17 @@ export function moveExercise(dayId, exerciseId, delta) {
 
 // ---- Logging ----
 
-export function saveSessionLogs(entries) {
+export function saveSessionLogs(entries, completedDayId) {
   const now = new Date().toISOString();
   entries.forEach((e) => {
     state.logs.push({ id: uid(), date: now, ...e });
   });
+  // Advance the rotation relative to the day actually trained, so starting
+  // mid-split (e.g. jumping straight to Pull) keeps "up next" correct.
   if (state.days.length) {
-    state.currentDayIndex = (state.currentDayIndex + 1) % state.days.length;
+    const doneIdx = state.days.findIndex((d) => d.id === completedDayId);
+    const from = doneIdx === -1 ? state.currentDayIndex : doneIdx;
+    state.currentDayIndex = (from + 1) % state.days.length;
   }
   notify();
 }
@@ -183,9 +187,22 @@ export function personalRecords() {
 export function workoutsInLastDays(days) {
   const cutoff = Date.now() - days * 86400000;
   const dates = new Set(
-    state.logs.filter((l) => new Date(l.date).getTime() >= cutoff).map((l) => localDateKey(l.date))
+    state.logs
+      .filter((l) => !l.skipped && new Date(l.date).getTime() >= cutoff)
+      .map((l) => localDateKey(l.date))
   );
   return dates.size;
+}
+
+/** Most recent training date per day id, for labelling the day picker. */
+export function lastPerformedByDay() {
+  const map = new Map();
+  state.logs.forEach((l) => {
+    if (l.skipped) return;
+    const prev = map.get(l.dayId);
+    if (!prev || l.date > prev) map.set(l.dayId, l.date);
+  });
+  return map;
 }
 
 export function lastWorkoutDate() {
@@ -194,7 +211,7 @@ export function lastWorkoutDate() {
 }
 
 export function currentStreak() {
-  const dateSet = new Set(state.logs.map((l) => localDateKey(l.date)));
+  const dateSet = new Set(state.logs.filter((l) => !l.skipped).map((l) => localDateKey(l.date)));
   const cursor = new Date();
   if (!dateSet.has(localDateKey(cursor))) cursor.setDate(cursor.getDate() - 1);
   let streak = 0;

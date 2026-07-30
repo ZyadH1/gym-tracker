@@ -1,6 +1,7 @@
 import { saveSessionLogs } from "./state.js";
 import { showView, openSheet, closeSheet, toast, escapeHTML } from "./ui-kit.js";
 import { getState } from "./state.js";
+import { guideURL } from "./exercise-library.js";
 
 let session = null; // { dayId, dayName, exercises, entries, index }
 
@@ -41,6 +42,10 @@ function buildCard(index) {
     <div class="exercise-title">
       <div class="day-label">${escapeHTML(session.dayName)} · ${index + 1} of ${session.exercises.length}</div>
       <h2>${escapeHTML(ex.name)}</h2>
+      <a class="guide-link" href="${guideURL(ex.name)}" target="_blank" rel="noopener noreferrer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 114 2c-.9.7-1.5 1.2-1.5 2.2"/><path d="M12 17h.01"/></svg>
+        How do I do this?
+      </a>
     </div>
     <div class="input-block">
       <div class="field-label">Weight <span class="stepper-unit">(${unit})</span></div>
@@ -204,7 +209,7 @@ function goBack(index) {
 
 function finishSession() {
   const entries = session.entries.filter(Boolean);
-  saveSessionLogs(entries);
+  saveSessionLogs(entries, session.dayId);
 
   const done = entries.filter((e) => !e.skipped).length;
   document.getElementById("summary-subtitle").textContent =
@@ -242,7 +247,7 @@ document.getElementById("session-close").addEventListener("click", () => {
   `);
   const saveBtn = document.getElementById("sheet-save-exit");
   if (saveBtn) saveBtn.addEventListener("click", () => {
-    saveSessionLogs(session.entries.filter(Boolean));
+    saveSessionLogs(session.entries.filter(Boolean), session.dayId);
     session = null;
     closeSheet();
     showView("home-view");

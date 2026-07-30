@@ -289,6 +289,191 @@ a { color: inherit; }
   margin-top: 2px;
 }
 
+/* ===== Day picker grid ===== */
+.day-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+.day-box {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  text-align: left;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  min-height: 104px;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.12s var(--ease), border-color 0.12s var(--ease);
+}
+.day-box:active { transform: scale(0.97); }
+.day-box:disabled { opacity: 0.45; pointer-events: none; }
+.day-box.is-next {
+  border-color: var(--accent);
+  background: linear-gradient(160deg, var(--accent), color-mix(in srgb, var(--accent) 62%, #4b2fff));
+  box-shadow: var(--shadow-md);
+}
+.day-box-name {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  margin-top: auto;
+}
+.day-box-meta { font-size: 13px; color: var(--text-secondary); }
+.day-box-last { font-size: 12px; color: var(--text-tertiary); margin-top: 2px; }
+.day-box.is-next .day-box-name { color: #fff; }
+.day-box.is-next .day-box-meta { color: rgba(255, 255, 255, 0.85); }
+.day-box.is-next .day-box-last { color: rgba(255, 255, 255, 0.7); }
+.day-box-badge {
+  align-self: flex-start;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+  margin-bottom: var(--space-2);
+}
+
+/* ===== Form-guide links ===== */
+.guide-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: var(--space-2);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  text-decoration: none;
+}
+.guide-link svg { width: 15px; height: 15px; }
+.guide-icon {
+  min-height: 30px !important;
+  min-width: 30px !important;
+  color: var(--text-tertiary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+.guide-icon:active { color: var(--accent); }
+
+/* ===== Sheet search / chips / picker ===== */
+.sheet-search {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  color: var(--text);
+  padding: 0 var(--space-4);
+  font-size: 16px;
+  margin-bottom: var(--space-4);
+  -webkit-appearance: none;
+  appearance: none;
+}
+.sheet-search::-webkit-search-cancel-button { -webkit-appearance: none; }
+
+.preset-scroll, .picker-scroll {
+  max-height: 52vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 0 calc(var(--space-5) * -1);
+  padding: 0 var(--space-5);
+}
+.preset-cat { margin-bottom: var(--space-5); }
+.preset-cat-name {
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+}
+.preset-cat-blurb {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  margin: 2px 0 var(--space-3);
+}
+.preset-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.freq-badge {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  background: var(--accent-dim);
+  color: var(--accent);
+  white-space: nowrap;
+}
+.preset-days { color: var(--text-tertiary) !important; font-size: 13px; margin-top: 6px !important; }
+.no-results { color: var(--text-secondary); padding: var(--space-4) 0; }
+
+.picker-group { margin-bottom: var(--space-4); }
+.picker-group-name {
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+  margin-bottom: var(--space-2);
+}
+.chip-row { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px var(--space-3);
+  border-radius: var(--radius-full);
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  font-size: 14px;
+  font-weight: 600;
+  transition: transform 0.1s var(--ease);
+}
+.chip:active { transform: scale(0.95); }
+.chip-added {
+  background: var(--success-dim);
+  border-color: color-mix(in srgb, var(--success) 40%, transparent);
+  color: var(--success);
+}
+.chip-custom {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: var(--accent-dim);
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+  color: var(--accent);
+  margin-bottom: var(--space-4);
+  border-radius: var(--radius-md);
+}
+.chip-guide {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--border);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 800;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
 .section-title {
   font-size: 13px;
   font-weight: 700;

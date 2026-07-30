@@ -18,6 +18,7 @@ function defaultState() {
     days: [],           // [{ id, name, exercises: [{ id, name }] }]
     currentDayIndex: 0,
     logs: [],           // [{ id, date, dayId, dayName, exerciseId, exerciseName, weight, sets, skipped }]
+    customExercises: [], // [{ id, name }] — user-added, reusable across days
     unit: "kg",
   };
 }
@@ -100,11 +101,15 @@ export function moveDay(dayId, delta) {
   notify();
 }
 
+/** Returns false if the day already has that exercise (a double-tap, say). */
 export function addExercise(dayId, name) {
   const day = state.days.find((d) => d.id === dayId);
-  if (!day || !name.trim()) return;
-  day.exercises.push({ id: uid(), name: name.trim() });
+  const clean = (name || "").trim();
+  if (!day || !clean) return false;
+  if (day.exercises.some((e) => e.name.toLowerCase() === clean.toLowerCase())) return false;
+  day.exercises.push({ id: uid(), name: clean });
   notify();
+  return true;
 }
 
 export function renameExercise(dayId, exerciseId, name) {
@@ -152,6 +157,79 @@ export function saveSessionLogs(entries, completedDayId) {
 export function deleteLog(logId) {
   state.logs = state.logs.filter((l) => l.id !== logId);
   notify();
+}
+
+/** Edit a past entry's numbers, or flip it to/from skipped. */
+export function updateLog(logId, { weight, sets, skipped }) {
+  const log = state.logs.find((l) => l.id === logId);
+  if (!log) return;
+  if (skipped) {
+    log.skipped = true;
+    log.weight = null;
+    log.sets = null;
+  } else {
+    log.skipped = false;
+    log.weight = weight;
+    log.sets = sets;
+  }
+  notify();
+}
+
+/** All entries of one logged session share a timestamp — that's the session key. */
+export function deleteSession(dateKey) {
+  state.logs = state.logs.filter((l) => l.date !== dateKey);
+  notify();
+}
+
+/** Sessions grouped for the log view, newest first. */
+export function sessionHistory() {
+  const byDate = new Map();
+  state.logs.forEach((l) => {
+    if (!byDate.has(l.date)) byDate.set(l.date, []);
+    byDate.get(l.date).push(l);
+  });
+  return [...byDate.entries()]
+    .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+    .map(([date, entries]) => ({
+      date,
+      dayName: entries[0].dayName,
+      dayId: entries[0].dayId,
+      entries,
+      done: entries.filter((e) => !e.skipped).length,
+      total: entries.length,
+    }));
+}
+
+/**
+ * Back-fill a workout onto a past date. Deliberately does NOT touch
+ * currentDayIndex — logging an old session must not change what's up next.
+ */
+export function addPastSession({ dateISO, dayId, dayName, entries }) {
+  entries.forEach((e) => {
+    state.logs.push({ id: uid(), date: dateISO, dayId, dayName, ...e });
+  });
+  notify();
+}
+
+// ---- Custom exercise library ----
+
+export function addCustomExercise(name) {
+  const clean = name.trim();
+  if (!clean) return;
+  const exists = state.customExercises.some(
+    (e) => e.name.toLowerCase() === clean.toLowerCase()
+  );
+  if (!exists) state.customExercises.push({ id: uid(), name: clean });
+  notify();
+}
+
+export function removeCustomExercise(id) {
+  state.customExercises = state.customExercises.filter((e) => e.id !== id);
+  notify();
+}
+
+export function customExerciseNames() {
+  return state.customExercises.map((e) => e.name);
 }
 
 // ---- Settings / stats helpers ----

@@ -4,10 +4,12 @@ import { renderHome } from "./home.js";
 import { renderStats } from "./stats.js";
 import { renderSchedule, initScheduleHeader } from "./schedule.js";
 import { renderSettings, initImportInput } from "./settings.js";
+import { renderHistory, initHistoryHeader } from "./history.js";
 import "./workout.js";
 
 function renderAll() {
   renderHome();
+  renderHistory();
   renderStats();
   renderSchedule();
   renderSettings();
@@ -19,6 +21,7 @@ document.querySelectorAll(".nav-btn").forEach((btn) => {
 
 initSheetDismiss();
 initScheduleHeader();
+initHistoryHeader();
 initImportInput();
 subscribe(renderAll);
 renderAll();

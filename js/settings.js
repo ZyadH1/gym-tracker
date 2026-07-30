@@ -1,5 +1,34 @@
-import { getState, setUnit, exportJSON, importJSON, resetAll } from "./state.js";
-import { openSheet, closeSheet, toast } from "./ui-kit.js";
+import { getState, setUnit, exportJSON, importJSON, resetAll, removeCustomExercise } from "./state.js";
+import { openSheet, closeSheet, toast, escapeHTML } from "./ui-kit.js";
+
+function openCustomExercisesSheet() {
+  const custom = getState().customExercises;
+  openSheet(`
+    <div class="sheet-handle"></div>
+    <h3>Your exercises</h3>
+    ${custom.length ? `
+      <p class="sheet-sub">Removing one here won't affect workouts you've already logged.</p>
+      <div class="custom-list">
+        ${custom.map((e) => `
+          <div class="custom-row">
+            <span class="grow">${escapeHTML(e.name)}</span>
+            <button class="btn-icon" data-remove-custom="${e.id}" aria-label="Remove ${escapeHTML(e.name)}">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="var(--danger)" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+            </button>
+          </div>`).join("")}
+      </div>` : `
+      <p style="color:var(--text-secondary);">You haven't added any custom exercises yet. When an exercise isn't in the built-in list, add it from the Schedule screen and it'll be saved here for reuse.</p>`}
+    <button class="btn btn-primary btn-block" id="custom-done">Done</button>
+  `);
+  document.querySelectorAll("[data-remove-custom]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      removeCustomExercise(btn.dataset.removeCustom);
+      toast("Removed from your exercises");
+      openCustomExercisesSheet();
+    });
+  });
+  document.getElementById("custom-done").addEventListener("click", closeSheet);
+}
 
 export function renderSettings() {
   const state = getState();
@@ -16,6 +45,15 @@ export function renderSettings() {
           <button data-unit="lb" class="${state.unit === "lb" ? "active" : ""}">lb</button>
         </div>
       </div>
+    </div>
+
+    <div class="settings-group">
+      <button class="settings-row btn-block" id="custom-ex-btn" style="width:100%;text-align:left;">
+        <div>
+          <div class="label">Your exercises</div>
+          <div class="hint">${state.customExercises.length} custom exercise${state.customExercises.length === 1 ? "" : "s"} saved</div>
+        </div>
+      </button>
     </div>
 
     <div class="settings-group">
@@ -46,6 +84,8 @@ export function renderSettings() {
     const btn = e.target.closest("[data-unit]");
     if (btn) setUnit(btn.dataset.unit);
   });
+
+  document.getElementById("custom-ex-btn").addEventListener("click", openCustomExercisesSheet);
 
   document.getElementById("export-btn").addEventListener("click", () => {
     const blob = new Blob([exportJSON()], { type: "application/json" });

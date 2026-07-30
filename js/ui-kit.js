@@ -1,5 +1,5 @@
-const views = ["home-view", "workout-view", "summary-view", "stats-view", "schedule-view", "settings-view"];
-const navViews = new Set(["home-view", "stats-view", "schedule-view", "settings-view"]);
+const views = ["home-view", "workout-view", "summary-view", "history-view", "stats-view", "schedule-view", "settings-view"];
+const navViews = new Set(["home-view", "history-view", "stats-view", "schedule-view", "settings-view"]);
 
 let onEnter = {};
 
@@ -66,4 +66,23 @@ export function formatDate(iso) {
 export function formatDateLong(iso) {
   const d = new Date(iso);
   return d.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
+}
+
+/** "Today" / "Yesterday" / "3d ago" / "Jul 12" */
+export function relativeDay(iso) {
+  const then = new Date(iso);
+  const today = new Date();
+  const days = Math.round((today.setHours(0, 0, 0, 0) - then.setHours(0, 0, 0, 0)) / 86400000);
+  if (days === 0) return "Today";
+  if (days === 1) return "Yesterday";
+  if (days > 1 && days < 7) return `${days}d ago`;
+  return formatDate(iso);
+}
+
+/** yyyy-mm-dd in local time, for <input type="date">. */
+export function dateInputValue(d = new Date()) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }

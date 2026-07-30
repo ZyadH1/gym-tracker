@@ -54,6 +54,17 @@
     <button class="btn btn-primary btn-block btn-lg mt-5" id="summary-done">Done</button>
   </section>
 
+  <!-- ===== LOG / HISTORY ===== -->
+  <section id="history-view" class="view">
+    <div class="view-header">
+      <div><h1>Log</h1><div class="subtitle">Every workout you've done</div></div>
+      <button class="btn-icon btn-secondary" id="history-add" aria-label="Add past workout">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+    </div>
+    <div id="history-content"></div>
+  </section>
+
   <!-- ===== STATS ===== -->
   <section id="stats-view" class="view">
     <div class="view-header">
@@ -88,6 +99,10 @@
       <button class="nav-btn" data-nav="home-view">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v9a1 1 0 001 1h4v-6h4v6h4a1 1 0 001-1v-9"/></svg>
         <span>Home</span>
+      </button>
+      <button class="nav-btn" data-nav="history-view">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/></svg>
+        <span>Log</span>
       </button>
       <button class="nav-btn" data-nav="stats-view">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M12 20V4M20 20v-7"/></svg>

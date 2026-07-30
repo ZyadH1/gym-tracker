@@ -166,6 +166,7 @@ a { color: inherit; }
 }
 .nav-btn {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -173,11 +174,17 @@ a { color: inherit; }
   padding: var(--space-2) 0;
   border-radius: var(--radius-md);
   color: var(--text-tertiary);
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 600;
   transition: color 0.15s var(--ease);
 }
-.nav-btn svg { width: 24px; height: 24px; }
+.nav-btn span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nav-btn svg { width: 23px; height: 23px; flex-shrink: 0; }
 .nav-btn.active { color: var(--accent); }
 
 /* ===== Buttons ===== */
@@ -472,6 +479,121 @@ a { color: inherit; }
   font-weight: 800;
   text-decoration: none;
   flex-shrink: 0;
+}
+
+/* ===== Log / history ===== */
+.log-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-3);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+.log-card-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-4);
+}
+.log-day { font-size: 17px; font-weight: 800; letter-spacing: -0.01em; }
+.log-date { font-size: 13px; color: var(--text-tertiary); margin-top: 2px; }
+.log-entry {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  text-align: left;
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--border);
+  background: none;
+}
+.log-entry:active { background: var(--bg-sunken); }
+.log-entry-name { flex: 1; font-size: 15px; font-weight: 600; min-width: 0; }
+.log-entry-value { font-size: 14px; color: var(--text-secondary); white-space: nowrap; }
+.log-entry-chevron { width: 16px; height: 16px; color: var(--text-tertiary); flex-shrink: 0; }
+.log-entry.is-skipped .log-entry-name { color: var(--text-tertiary); text-decoration: line-through; }
+.log-entry.is-skipped .log-entry-value { color: var(--text-tertiary); }
+
+/* ===== Backfill form ===== */
+.sheet-sub { color: var(--text-secondary); font-size: 14px; margin: calc(var(--space-3) * -1) 0 var(--space-4); }
+.backfill-fields { display: flex; flex-direction: column; gap: var(--space-2); }
+.backfill-fields .field-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+}
+.backfill-fields .sheet-search { margin-bottom: var(--space-2); }
+.backfill-scroll {
+  max-height: 38vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+.backfill-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border);
+}
+.backfill-name {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.backfill-row input {
+  width: 56px;
+  min-height: 40px;
+  text-align: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  font-size: 15px;
+  font-weight: 700;
+  -moz-appearance: textfield;
+}
+.backfill-row input::-webkit-inner-spin-button,
+.backfill-row input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.backfill-unit { font-size: 12px; color: var(--text-tertiary); font-weight: 600; }
+.backfill-hint {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  margin: var(--space-3) 0 0;
+  text-align: center;
+}
+
+/* ===== Picker extras: alias hints, dupe suggestion, custom list ===== */
+.chip-alias { font-size: 11px; color: var(--text-tertiary); font-weight: 600; }
+.chip-added .chip-alias { color: inherit; opacity: 0.7; }
+.suggest-box {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  background: var(--accent-dim);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  margin-bottom: var(--space-3);
+}
+.suggest-text { font-size: 14px; color: var(--text); line-height: 1.4; }
+.suggest-btn { min-height: 44px; align-self: flex-start; }
+.custom-list { display: flex; flex-direction: column; }
+.custom-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 15px;
+  font-weight: 600;
 }
 
 .section-title {

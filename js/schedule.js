@@ -3,8 +3,11 @@ import {
   addExercise, removeExercise, moveExercise, renameExercise, applyPreset,
 } from "./state.js";
 import { escapeHTML, openSheet, closeSheet, toast } from "./ui-kit.js";
+import { addCustomExercise, customExerciseNames, distinctExerciseNames } from "./state.js";
 import { PRESET_CATEGORIES, PRESETS } from "./presets.js";
-import { EXERCISE_GROUPS, guideURL } from "./exercise-library.js";
+import {
+  EXERCISE_GROUPS, guideURL, matchExercise, findSimilarExercise, normalize,
+} from "./exercise-library.js";
 
 function dayCardHTML(day, index, total) {
   return `
@@ -137,64 +140,123 @@ function confirmReplace(preset, onConfirm) {
 
 /* ===== Exercise picker ===== */
 
+function chipHTML(name, isAdded) {
+  return `
+    <button class="chip ${isAdded ? "chip-added" : ""}" data-add="${escapeHTML(name)}">
+      <span class="chip-label">${escapeHTML(name)}${isAdded ? " ✓" : ""}</span>
+      <span class="chip-alias hidden"></span>
+      <a class="chip-guide" href="${guideURL(name)}" target="_blank" rel="noopener noreferrer" aria-label="How to do ${escapeHTML(name)}">?</a>
+    </button>`;
+}
+
 function openExercisePicker(dayId) {
   const day = getState().days.find((d) => d.id === dayId);
   if (!day) return;
   const existing = new Set(day.exercises.map((e) => e.name.toLowerCase()));
-  const known = new Set(EXERCISE_GROUPS.flatMap((g) => g.exercises).map((e) => e.toLowerCase()));
+  const customNames = customExerciseNames();
+
+  const groups = [
+    ...(customNames.length ? [{ id: "custom", name: "Your exercises", exercises: customNames }] : []),
+    ...EXERCISE_GROUPS,
+  ];
 
   openSheet(`
     <div class="sheet-handle"></div>
     <h3>Add to ${escapeHTML(day.name)}</h3>
     <input type="search" class="sheet-search" id="ex-search" placeholder="Search exercises…" />
     <div class="picker-scroll">
+      <div class="suggest-box hidden" id="suggest-box"></div>
       <button class="chip chip-custom hidden" id="add-custom-btn"></button>
-      ${EXERCISE_GROUPS.map((g) => `
+      ${groups.map((g) => `
         <div class="picker-group" data-group>
           <div class="picker-group-name">${escapeHTML(g.name)}</div>
           <div class="chip-row">
-            ${g.exercises.map((e) => `
-              <button class="chip ${existing.has(e.toLowerCase()) ? "chip-added" : ""}" data-add="${escapeHTML(e)}">
-                <span class="chip-label">${escapeHTML(e)}${existing.has(e.toLowerCase()) ? " ✓" : ""}</span>
-                <a class="chip-guide" href="${guideURL(e)}" target="_blank" rel="noopener noreferrer" aria-label="How to do ${escapeHTML(e)}">?</a>
-              </button>`).join("")}
+            ${g.exercises.map((e) => chipHTML(e, existing.has(e.toLowerCase()))).join("")}
           </div>
         </div>
       `).join("")}
+      <p class="no-results hidden" id="picker-no-results">Nothing matched — you can still add it as a custom exercise above.</p>
     </div>
     <button class="btn btn-primary btn-block" id="picker-done">Done</button>
   `);
 
   const search = document.getElementById("ex-search");
   const customBtn = document.getElementById("add-custom-btn");
-
-  search.addEventListener("input", () => {
-    const raw = search.value.trim();
-    const q = raw.toLowerCase();
-    document.querySelectorAll("[data-group]").forEach((group) => {
-      let visible = false;
-      group.querySelectorAll("[data-add]").forEach((chip) => {
-        const hit = !q || chip.dataset.add.toLowerCase().includes(q);
-        chip.classList.toggle("hidden", !hit);
-        if (hit) visible = true;
-      });
-      group.classList.toggle("hidden", !visible);
-    });
-    const showCustom = raw.length > 1 && !known.has(q);
-    customBtn.classList.toggle("hidden", !showCustom);
-    if (showCustom) {
-      customBtn.textContent = `+ Add "${raw}" as a custom exercise`;
-      customBtn.dataset.addCustom = raw;
-    }
-  });
+  const suggestBox = document.getElementById("suggest-box");
+  const noResults = document.getElementById("picker-no-results");
 
   function markAdded(chip, name) {
-    addExercise(dayId, name);
-    toast(`${name} added`);
+    const added = addExercise(dayId, name);
+    toast(added ? `${name} added` : `${name} is already in this day`);
+    if (!added) return;
     chip.classList.add("chip-added");
     const label = chip.querySelector(".chip-label");
     if (label && !label.textContent.endsWith(" ✓")) label.textContent += " ✓";
   }
+
+  function addAsCustom(name) {
+    addCustomExercise(name);   // remember it for every future day
+    const added = addExercise(dayId, name);
+    toast(added ? `${name} added` : `${name} is already in this day`);
+    closeSheet();
+    openExercisePicker(dayId); // rebuild so it shows under "Your exercises"
+  }
+
+  search.addEventListener("input", () => {
+    const raw = search.value.trim();
+    let anyVisible = false;
+
+    document.querySelectorAll("[data-group]").forEach((group) => {
+      let groupVisible = false;
+      group.querySelectorAll("[data-add]").forEach((chip) => {
+        const { hit, viaAlias } = matchExercise(chip.dataset.add, raw);
+        chip.classList.toggle("hidden", !hit);
+        const aliasEl = chip.querySelector(".chip-alias");
+        if (viaAlias) {
+          aliasEl.textContent = `· ${viaAlias}`;
+          aliasEl.classList.remove("hidden");
+        } else {
+          aliasEl.classList.add("hidden");
+        }
+        if (hit) groupVisible = true;
+      });
+      group.classList.toggle("hidden", !groupVisible);
+      if (groupVisible) anyVisible = true;
+    });
+
+    noResults.classList.toggle("hidden", anyVisible || raw.length < 2);
+
+    // Offer a custom add, but first warn if it's a near-duplicate of something
+    // that already exists — otherwise stats split across two spellings.
+    const alreadyExact = [...document.querySelectorAll("[data-add]")]
+      .some((c) => normalize(c.dataset.add) === normalize(raw));
+    const showCustom = raw.length > 1 && !alreadyExact;
+    customBtn.classList.toggle("hidden", !showCustom);
+    suggestBox.classList.add("hidden");
+
+    if (showCustom) {
+      customBtn.textContent = `+ Add "${raw}" as a custom exercise`;
+      customBtn.dataset.addCustom = raw;
+
+      const similar = findSimilarExercise(raw, [...customNames, ...distinctExerciseNames()]);
+      if (similar) {
+        suggestBox.innerHTML = `
+          <span class="suggest-text">Did you mean <strong>${escapeHTML(similar.name)}</strong>?
+          Using the same name keeps your progress in one chart.</span>
+          <button class="btn btn-secondary suggest-btn" data-suggest="${escapeHTML(similar.name)}">Use ${escapeHTML(similar.name)}</button>`;
+        suggestBox.classList.remove("hidden");
+        suggestBox.querySelector("[data-suggest]").addEventListener("click", () => {
+          const name = similar.name;
+          const chip = [...document.querySelectorAll("[data-add]")]
+            .find((c) => c.dataset.add === name);
+          if (chip) markAdded(chip, name);
+          else { addExercise(dayId, name); toast(`${name} added`); }
+          search.value = "";
+          search.dispatchEvent(new Event("input"));
+        });
+      }
+    }
+  });
 
   document.querySelectorAll("[data-add]").forEach((chip) => {
     chip.addEventListener("click", (e) => {
@@ -204,12 +266,7 @@ function openExercisePicker(dayId) {
   });
 
   customBtn.addEventListener("click", () => {
-    const name = customBtn.dataset.addCustom;
-    if (!name) return;
-    addExercise(dayId, name);
-    toast(`${name} added`);
-    search.value = "";
-    search.dispatchEvent(new Event("input"));
+    if (customBtn.dataset.addCustom) addAsCustom(customBtn.dataset.addCustom);
   });
 
   document.getElementById("picker-done").addEventListener("click", closeSheet);
